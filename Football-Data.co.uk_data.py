@@ -1,3 +1,18 @@
+# ---
+# jupyter:
+#   jupytext:
+#     formats: ipynb,py:light
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.4.2
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
 """.py file for Jupyter notebook; for Git reasons."""
 
 # ---
@@ -15,8 +30,7 @@
 #     name: python3
 # ---
 
-# # EPL, Championship, League 1, League 2, Bundesliga, Serie A,
-# La Liga & Ligue 1 Data 2005/2006 - 2018/2019
+# # EPL, Championship, League 1, League 2, Bundesliga, Serie A,La Liga & Ligue 1 Data 2005/2006 - 2018/2019
 #
 #
 #
@@ -31,6 +45,7 @@ import seaborn as sns
 import datetime
 import os
 import glob
+import random
 from itertools import groupby
 import warnings
 plt.style.use("ggplot")
@@ -560,19 +575,21 @@ for i, j in enumerate(winless["Streak"]):
 
 plt.tight_layout()
 
-# -
-
+# +
 df_EPL["Winner"]  = df_EPL.apply(lambda x: winning_team(x), axis=1)
 winners = df_EPL["Winner"].value_counts()[1:].reset_index()
 plt.figure(figsize = (15, 10))
 ax = sns.barplot(y="index", x="Winner", data=winners, orient="h")
 plt.title("EPL: Number of Wins (2005-2019)")
 plt.ylabel("")
-plt.xlabel("Goals")
+plt.xlabel("Wins")
 plt.xticks(weight="bold")
 plt.yticks(weight="bold")
 for i, j in enumerate(winners["Winner"]):
     ax.text(0.1, i, j, weight="bold")
+    
+plt.savefig("EPLwins.png", bbox_inches='tight')
+# -
 
 
 # biggest comebacks from HT
@@ -599,7 +616,7 @@ for j in half_time_leads_squandered.index:
             str(int(df.iloc[j]["HTAG"])) + "," +  " "*2 + "FT:" + " " +
             str(int(df.iloc[j]["FTHG"])) +  "-" + str(int(df.iloc[j]["FTAG"])) + " " +
             "(" + str(df.iloc[j]["Date"].year) + ")", weight="bold")
-    i += 1;
+    i += 1
 
 # +
 # Who's best from being behind at HT
@@ -644,6 +661,7 @@ plt.title("Percentage of away games won when behind at HT")
 plt.xlim((0,45))
 
 plt.tight_layout()
+
 
 # +
 df_full_time_score = df[["Div", "FTHG", "FTAG"]]
@@ -696,11 +714,12 @@ with sns.axes_style("white"):
     plt.xticks(fontsize=15, weight="bold")
     plt.yticks(fontsize=15, weight="bold")
     ax.tick_params(axis="both", length=0)
-    plt.title("Distribution of Full Time Results \n2005-2019",
-              fontsize=20, loc="left", pad=20, weight="bold");
+    plt.title("Distribution of Full Time Results (Top European Leagues) \n2005/2006-2018/2019",
+              fontsize=20, loc="left", pad=20, weight="bold")
+    
 # -
 
-# # Betting Analysis
+# # Odds Analysis
 
 df_inf_overround = df[(df["B365H"] == 0) | (df["B365D"] == 0) | (df["B365A"] == 0)]
 df_inf_overround #  check for infinite overround
@@ -766,9 +785,244 @@ for i, j in enumerate(df_biggest_home_upsets["B365H"]):
             str(round(j-1)) + "/1" + " " + " " + "(" +
             str(df.iloc[df_biggest_home_upsets.index[i]]["Date"].year) + ")",
             weight="bold", color="black")
-
 plt.figure(figsize=(15, 8))
 sns.scatterplot(x="B365A", y="B365H", data=df, palette="cmap")
 plt.xlabel("B365 Away Odds")
 plt.ylabel("B365 Home Odds")
 plt.title("Home Odds vs Away Odds")
+# negative overround at any point?
+df[df["Overround"] < 0]
+# # Betting
+df_bet = df[["Div", "Date", "HomeTeam", "AwayTeam", "FTR", "B365H", "B365D", "B365A"]]
+
+
+def bet_return(choice, x):
+    
+    """Unit Stake"""
+    
+    if choice == "H" and x["FTR"] == "H":
+        return x["B365H"] - 1 
+    elif choice == "D" and x["FTR"] == "D":
+        return x["B365D"] - 1 
+    elif choice == "A" and x["FTR"] == "A":
+        return x["B365A"] - 1 
+    else:
+        return -1
+
+
+df_bet["Return_Home"] = df_bet.apply(lambda x: bet_return("H", x), axis=1)
+df_bet["Return_Draw"] = df_bet.apply(lambda x: bet_return("D", x), axis=1)
+df_bet["Return_Away"] = df_bet.apply(lambda x: bet_return("A", x), axis=1)
+
+# bet on a home win every time
+df_bet["Return_Home"].sum().round(2)
+
+# bet on a draw every time
+df_bet["Return_Draw"].sum().round(2)
+
+# bet on an away win every time
+df_bet["Return_Away"].sum().round(2)
+
+# +
+# bet at random, do this 10 times and take the average
+lst = ["Return_Home", "Return_Draw", "Return_Away"]
+ret_list = []
+for j in range(10):
+    ret = 0
+    for i in df_bet.index:
+        ret += df_bet[random.choice(lst)][i]
+    ret_list.append(ret)
+   
+np.mean(ret_list).round(2)
+
+# +
+# always bet on the favourite
+df_bet["Favourite"] = df_bet[["B365H", "B365D", "B365A"]].idxmin(axis=1)
+ret = 0
+for i in df_bet.index:
+    if df_bet.iloc[i]["Favourite"].endswith("H"):
+        ret += df_bet.iloc[i]["Return_Home"]
+    elif df_bet.iloc[i]["Favourite"].endswith("D"):
+        ret += df_bet.iloc[i]["Return_Draw"]
+    else:
+        ret += df_bet.iloc[i]["Return_Away"]
+        
+ret.round(2)
+
+
+# -
+
+# always bet on a certain team
+def bet_team(team, start_date=None, end_date=None):
+    start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+    end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    df = df_bet[(df_bet["HomeTeam"] == team) | (df_bet["AwayTeam"] == team)]
+    if start_date and end_date:
+        df = df[(df["Date"]  > start_date) & (df["Date"]  < end_date)]
+    ret = 0 
+    for i in range(len(df.index)):
+        if df.iloc[i]["HomeTeam"] == team:
+            ret += df.iloc[i]["Return_Home"]
+        elif df.iloc[i]["AwayTeam"] == team:
+            ret += df.iloc[i]["Return_Away"]
+            
+    return ret.round(2)
+
+
+# Leicester during their title winning season
+bet_team("Leicester", "2015-08-07", "2016-05-17")
+
+# bet on teams who have won their last x games
+df_bet["Winner"] = df_bet.apply(lambda x: winning_team(x), axis = 1)
+df_bet
+
+# +
+x = df_bet[["HomeTeam", "AwayTeam", "Winner"]].to_numpy()
+
+def process_team(data, team, output):
+    played = np.flatnonzero((data[:, :2] == team).any(axis=1))
+    won = data[played, -1] == team
+    wins = np.r_[0, won, 0]
+    switch_indices = np.flatnonzero(np.diff(wins))
+    streaks = np.diff(switch_indices)[::2]
+    wins[switch_indices[1::2] + 1] = -streaks
+    streak_counts = np.cumsum(wins[1:-1])
+
+    home_mask = data[played, 0] == team
+    away_mask = ~home_mask
+
+    output[played[home_mask], 0] = streak_counts[home_mask]
+    output[played[away_mask], 1] = streak_counts[away_mask]
+
+output = np.empty((x.shape[0], 2), dtype=int)
+for team in np.unique(x[:, :2]):
+    process_team(x, team, output)
+output
+home_streak = output[:, 0]
+away_streak = output[:, 1]
+df_bet["home_streak"] = home_streak
+df_bet["away_streak"] = away_streak
+
+# +
+"""SOLUTION IS TOO SLOW (17 mins)"""
+
+# x is a row of the DataFrame
+def home_streak(x):
+    """Keep track of a team's winstreak"""
+    home_team = x["HomeTeam"]
+    date = x["Date"]
+    
+    # all previous matches for the home team 
+    home_df = df_bet[(df_bet["HomeTeam"] == home_team) | (df_bet["AwayTeam"] == home_team)]
+    home_df = home_df[home_df["Date"] <  date].sort_values(by="Date", ascending=False).reset_index()
+    if len(home_df.index) == 0:
+        return 0
+    elif home_df.iloc[0]["Winner"] != home_team:
+        return 0
+    else: # they won the last game
+        winners = home_df["Winner"]
+        streak = 0
+        for i in winners.index:
+            if home_df.iloc[i]["Winner"] == home_team:
+                streak += 1
+            else:
+                return streak
+        
+        
+def away_streak(x):
+    
+    away_team = x["AwayTeam"]
+    date = x["Date"]
+
+    # all previous matches for the home team
+    away_df = df_bet[(df_bet["HomeTeam"] == away_team) | (df_bet["AwayTeam"] == away_team)]
+    away_df = away_df[away_df["Date"] <  date].sort_values(by="Date", ascending=False).reset_index()
+    if len(away_df.index) == 0:
+        return 0
+    elif away_df.iloc[0]["Winner"] != away_team:
+        return 0
+    else: # they won the last game
+        winners = away_df["Winner"]
+        streak = 0
+        for i in winners.index:
+            if away_df.iloc[i]["Winner"] == away_team:
+                streak += 1
+            else:
+                return streak
+            
+df_bet["home_streak"] = 0
+df_bet["away_streak"] = 0
+df_bet["home_streak"] = df_bet.apply(lambda x: home_streak(x), axis = 1)
+df_bet["away_streak"] = df_bet.apply(lambda x: away_streak(x), axis = 1)
+    
+# -
+
+lst = []
+for k in range(10):
+    ret = 0 
+    bets = 0
+    for i in df_bet.index:
+        if (df_bet.iloc[i]["home_streak"] > k) and (df_bet.iloc[i]["home_streak"] > df_bet.iloc[i]["away_streak"]):
+            bets += 1
+            ret += df_bet.iloc[i]["Return_Home"]  
+        elif (df_bet.iloc[i]["away_streak"] > k) and (df_bet.iloc[i]["home_streak"] < df_bet.iloc[i]["away_streak"]):
+            bets += 1
+            ret += df_bet.iloc[i]["Return_Home"] 
+    lst.append((bets, ret))
+print(lst)
+
+# +
+# bad team on a good streak
+ret = 0
+bets = 0
+for i in df_bet.index:
+    if (df_bet.iloc[i]["home_streak"] > 4) and not (df_bet.iloc[i]["Favourite"].endswith("H")):
+        bets += 1
+        ret += df_bet.iloc[i]["Return_Home"]
+    elif (df_bet.iloc[i]["away_streak"] > 4) and not (df_bet.iloc[i]["Favourite"].endswith("A")):
+        bets += 1
+        ret += df_bet.iloc[i]["Return_Away"]
+        
+        
+print((bets, ret))
+
+# +
+# difference in form
+ret = 0
+bets = 0
+for i in df_bet.index:
+    if df_bet.iloc[i]["home_streak"] - df_bet.iloc[i]["away_streak"] > 3:
+        bets += 1
+        ret += df_bet.iloc[i]["Return_Home"]
+    elif df_bet.iloc[i]["home_streak"] - df_bet.iloc[i]["away_streak"] < -3:
+        bets += 1
+        ret += df_bet.iloc[i]["Return_Away"]
+           
+print((bets, ret))
+
+
+# -
+
+# based on previous results between the teams
+def previous_results(x):
+    home = x["HomeTeam"]
+    away = x["AwayTeam"]
+    date = x["Date"]
+    
+    df = df_bet[(df_bet["HomeTeam"] == home) & (df_bet["AwayTeam"] == away)]
+    df = df[df["Date"]  < date].sort_values(by="Date", ascending=False)
+    if len(df) > 0:
+        try:
+            home_wins = df["Winner"].value_counts()[home]
+        except KeyError as e:
+            home_wins = 0
+        try:
+            away_wins = df["Winner"].value_counts()[away]
+        except KeyError as e:
+            away_wins = 0
+            
+        return home_wins - away_wins
+    else:
+        return "N/A"
+
+
