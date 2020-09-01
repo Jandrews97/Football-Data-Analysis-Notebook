@@ -574,8 +574,8 @@ for i, j in enumerate(winless["Streak"]):
     ax.text(1, i, j, weight="bold")
 
 plt.tight_layout()
+# -
 
-# +
 df_EPL["Winner"]  = df_EPL.apply(lambda x: winning_team(x), axis=1)
 winners = df_EPL["Winner"].value_counts()[1:].reset_index()
 plt.figure(figsize = (15, 10))
@@ -587,9 +587,6 @@ plt.xticks(weight="bold")
 plt.yticks(weight="bold")
 for i, j in enumerate(winners["Winner"]):
     ax.text(0.1, i, j, weight="bold")
-    
-plt.savefig("EPLwins.png", bbox_inches='tight')
-# -
 
 
 # biggest comebacks from HT
@@ -745,6 +742,9 @@ for i,league in enumerate(["EPL", "Bundesliga", "Championship", "Ligue 1",
     plt.ylim((0, 12))
 plt.tight_layout()
 
+# negative overround at any point?
+df[df["Overround"] < 0]
+
 df_biggest_away_upsets = (df[df["FTR"] == "A"]
                           .sort_values(by="B365A",
                                        ascending=False)[["HomeTeam", "AwayTeam", "B365A"]][:15])
@@ -790,9 +790,8 @@ sns.scatterplot(x="B365A", y="B365H", data=df, palette="cmap")
 plt.xlabel("B365 Away Odds")
 plt.ylabel("B365 Home Odds")
 plt.title("Home Odds vs Away Odds")
-# negative overround at any point?
-df[df["Overround"] < 0]
 # # Betting
+
 df_bet = df[["Div", "Date", "HomeTeam", "AwayTeam", "FTR", "B365H", "B365D", "B365A"]]
 
 
